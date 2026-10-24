@@ -170,6 +170,14 @@
 
   <section>
     <div class="inner">
+      <h2>Услуги</h2>
+      <p class="sub">Разовые услуги. Не снимают блокировки за читы и взлом.</p>
+      <div class="grid" id="services"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="inner">
       <h2>Сезонный префикс</h2>
       <p class="sub">Продаётся только в праздничный период, потом исчезает из магазина.</p>
       <div class="grid" id="season"></div>
@@ -237,6 +245,13 @@
       perks: ['Зимний префикс ❄ в чате и табе', 'Аура из снежинок', 'Скины для /hat: шапка Деда Мороза и ёлка', 'Праздничный кейс с 5 косметическими наградами', 'Набор декора: ёлки, гирлянды и блоки-подарки', 'Префикс остаётся навсегда как коллекционный'] }
   ];
 
+  var SERVICES = [
+    { id: 'unban', name: 'Разбан', icon: 'unlock', noPrefix: true, price: 149, color: '#FFA70F', tagline: 'Снять одну блокировку',
+      perks: ['Снимает одну активную блокировку на сервере', 'Разовая услуга: действует на один бан', 'Не распространяется на блокировки за читы, взлом, мультиаккаунты, обход бана и мошенничество', 'Бан снимает администратор после оплаты, обычно в течение 24 часов', 'Если бан нельзя снять по этим условиям, оплата возвращается полностью'] },
+    { id: 'unmute', name: 'Размут', icon: 'speaker', noPrefix: true, price: 49, color: '#F4F5F7', tagline: 'Снять мут в чате',
+      perks: ['Снимает активный мут, и ты снова можешь писать в чат', 'Разовая услуга: действует на один мут', 'Не снимает бан и не отменяет будущие наказания: за повторное нарушение мут выдаётся снова по правилам сервера', 'Мут снимает администратор после оплаты, обычно в течение 24 часов'] }
+  ];
+
   var NS = 'http://www.w3.org/2000/svg';
   function el(tag, cls, text) {
     var e = document.createElement(tag);
@@ -265,6 +280,19 @@
     }
     svg.appendChild(svgEl('polygon', { points: '56,3 107,32 107,92 56,121 5,92 5,32', fill: 'none', stroke: fill, 'stroke-width': '5' }));
     svg.appendChild(svgEl('polygon', { points: '56,17 95,39 95,85 56,107 17,85 17,39', fill: fill, 'fill-opacity': '.14' }));
+    if (r.icon) {
+      var g2 = svgEl('g', { fill: fill, stroke: fill });
+      if (r.icon === 'speaker') {
+        g2.appendChild(svgEl('polygon', { points: '36,54 47,54 62,42 62,82 47,70 36,70', 'stroke-width': '2', 'stroke-linejoin': 'round' }));
+        g2.appendChild(svgEl('path', { d: 'M70 52 Q78 62 70 72', fill: 'none', 'stroke-width': '4', 'stroke-linecap': 'round' }));
+        g2.appendChild(svgEl('path', { d: 'M76 44 Q89 62 76 80', fill: 'none', 'stroke-width': '4', 'stroke-linecap': 'round' }));
+      } else {
+        g2.appendChild(svgEl('rect', { x: '40', y: '60', width: '32', height: '24', 'stroke-width': '2', 'stroke-linejoin': 'round' }));
+        g2.appendChild(svgEl('path', { d: 'M47 60 V48 A9 9 0 0 1 65 48', fill: 'none', 'stroke-width': '5', 'stroke-linecap': 'round' }));
+      }
+      svg.appendChild(g2);
+      return svg;
+    }
     var t = svgEl('text', { x: '56', y: r.num === '❄' ? '77' : '76', 'text-anchor': 'middle', 'font-size': r.num === '❄' ? '46' : '44', 'font-family': 'Russo One, Impact, sans-serif', fill: fill });
     t.textContent = r.num;
     svg.appendChild(t);
@@ -344,6 +372,7 @@
     pic.appendChild(badge(r));
     showDialogPrice();
     prefixNode(document.getElementById('dlg-prefix'), r);
+    document.getElementById('dlg-prefix').parentNode.hidden = !!r.noPrefix;
     var inc = document.getElementById('dlg-inc');
     if (list === RANKS && index > 0) {
       inc.hidden = false;
@@ -384,9 +413,12 @@
   function renderAll() {
     var a = document.getElementById('ranks');
     var b = document.getElementById('season');
+    var c = document.getElementById('services');
     a.textContent = '';
     b.textContent = '';
+    c.textContent = '';
     render(RANKS, a);
+    render(SERVICES, c);
     render(SEASON, b);
     if (dlg.open) showDialogPrice();
   }
