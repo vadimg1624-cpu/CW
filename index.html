@@ -1,7 +1,11 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>CoocksWorld</title>
-<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=JetBrains+Mono:wght@500&family=Russo+One&display=swap">
+<script src="config.js"></script>
 <style>
   /* Layout: тёмная шапка-герой с логотипом, ниже светлые секции; шестигранники и вертикальные планки взяты из логотипа */
   :root {
@@ -47,6 +51,7 @@
   }
 
   * { box-sizing: border-box; }
+  html, body { margin: 0; }
   body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 16px; line-height: 1.6; padding-block: 0; }
   a { color: var(--orange-text); text-underline-offset: 3px; }
   a:focus-visible, button:focus-visible { outline: 3px solid var(--orange); outline-offset: 3px; }
@@ -65,6 +70,8 @@
   nav { display: flex; flex-wrap: wrap; gap: 6px 22px; }
   nav a { color: var(--hero-muted); text-decoration: none; font-weight: 700; font-size: .95rem; }
   nav a:hover { color: var(--orange); }
+  nav a.admin-btn { color: var(--orange); border: 2px solid var(--orange); padding: 2px 12px; font-size: .85rem; }
+  nav a.admin-btn:hover { background: var(--orange); color: var(--ink); }
 
   .hero { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, .75fr); gap: 32px 56px; align-items: center; padding-block: 36px 56px; }
   h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(2.5rem, 9vw, 5rem); line-height: .98; margin: 0 0 16px; letter-spacing: .01em; text-transform: uppercase; }
@@ -87,6 +94,8 @@
   dl.facts dd { margin: 0; font-weight: 700; text-align: right; }
   .status { display: inline-flex; align-items: center; gap: 8px; }
   .status i { width: 12px; height: 12px; background: var(--orange); display: inline-block; }
+  .status.online i { background: #4ADE80; }
+  .notice.online { background: #FFFFFF; }
 
   /* Sections */
   section { padding-block: 56px 8px; }
@@ -149,6 +158,8 @@
   @media (prefers-reduced-motion: reduce) { button.copy:active { transform: none; } }
 </style>
 
+</head>
+<body>
 <div class="hero-band">
   <div class="inner">
     <header class="top">
@@ -158,6 +169,7 @@
         <a href="#rules">Правила</a>
         <a href="#join">Как зайти</a>
         <a href="#links">Ссылки</a>
+        <a class="admin-btn" href="admin.html" rel="nofollow">Админ-панель</a>
       </nav>
     </header>
 
@@ -165,8 +177,8 @@
       <div>
         <h1>Coocks<span>World</span></h1>
         <p class="lead">Minecraft-сервер, где всё прозрачно и честно.</p>
-        <div class="notice" role="status">
-          <p><strong>Сервер на переработке.</strong> Сейчас зайти нельзя. Дату открытия объявим в Discord и Telegram.</p>
+        <div class="notice rework" id="notice" role="status">
+          <p id="notice-text"><strong>Сервер на переработке.</strong> Сейчас зайти нельзя. Дату открытия объявим в Discord и Telegram.</p>
         </div>
       </div>
       <div class="logo-big" role="img" aria-label="Логотип CoocksWorld"></div>
@@ -184,7 +196,7 @@
           <dt>Версия</dt><dd>1.16.5</dd>
           <dt>Платформа</dt><dd>Java Edition</dd>
           <dt>Аккаунты</dt><dd>Пиратский режим</dd>
-          <dt>Статус</dt><dd><span class="status"><i class="hex" aria-hidden="true"></i>На переработке</span></dd>
+          <dt>Статус</dt><dd><span class="status rework" id="status"><i class="hex" aria-hidden="true"></i><span id="status-label">На переработке</span></span></dd>
         </dl>
       </aside>
     </div>
@@ -298,7 +310,7 @@
   <section id="join">
     <div class="inner">
       <h2>Как зайти</h2>
-      <p class="sub">Инструкция заработает, когда сервер откроется после переработки.</p>
+      <p class="sub" id="join-sub">Инструкция заработает, когда сервер откроется после переработки.</p>
       <ol class="steps">
         <li><b>Запусти Minecraft</b><span>Java Edition, версия 1.16.5.</span></li>
         <li><b>Открой «Сетевая игра»</b><span>Нажми «Добавить сервер».</span></li>
@@ -330,6 +342,40 @@
 </footer>
 
 <script>
+/* Статус сервера берётся из Supabase (config.js). Без связи остаётся текст по умолчанию. */
+(function () {
+  var URL_ = (window.CW_SUPABASE_URL || '').replace(/\/+$/, '');
+  var KEY = window.CW_SUPABASE_KEY || '';
+  if (!URL_ || !KEY || !window.fetch) return;
+  var T = {
+    online: { title: 'Сервер работает', text: 'Заходи по IP ниже и играй.', label: 'Работает', sub: 'Четыре шага, и ты на сервере.' },
+    rework: { title: 'Сервер на переработке', text: 'Сейчас зайти нельзя. Дату открытия объявим в Discord и Telegram.', label: 'На переработке', sub: 'Инструкция заработает, когда сервер откроется после переработки.' },
+    maintenance: { title: 'Технические работы', text: 'Сервер скоро вернётся.', label: 'Технические работы', sub: 'Инструкция заработает, когда технические работы закончатся.' }
+  };
+  fetch(URL_ + '/rest/v1/server_status?select=status,message&id=eq.1', {
+    headers: { apikey: KEY, Authorization: 'Bearer ' + KEY }
+  }).then(function (r) {
+    return r.ok ? r.json() : Promise.reject();
+  }).then(function (rows) {
+    var d = rows && rows[0];
+    var t = d && T[d.status];
+    if (!d) return;
+    if (!t) return;
+    var notice = document.getElementById('notice');
+    var p = document.getElementById('notice-text');
+    notice.className = 'notice ' + d.status;
+    p.textContent = '';
+    var strong = document.createElement('strong');
+    strong.textContent = t.title + '.';
+    p.appendChild(strong);
+    p.appendChild(document.createTextNode(' ' + (d.message || t.text)));
+    var st = document.getElementById('status');
+    st.className = 'status ' + d.status;
+    document.getElementById('status-label').textContent = t.label;
+    document.getElementById('join-sub').textContent = t.sub;
+  }).catch(function () {});
+})();
+
 (function () {
   var btn = document.getElementById('copy');
   var ipEl = document.getElementById('ip');
@@ -350,5 +396,5 @@
   });
 })();
 </script>
-
-</body></html>
+</body>
+</html>
