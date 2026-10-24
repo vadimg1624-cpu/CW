@@ -105,8 +105,17 @@
   :root[data-theme="dark"] .tag { background: var(--orange); color: var(--ink); }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tag { background: var(--orange); color: var(--ink); } }
   .back { margin-top: 28px; }
+  .checks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 14px; margin-top: 6px; }
+  .checks label { display: flex; align-items: center; gap: 8px; font-weight: 500; margin: 0; padding: 6px 0; }
+  .checks input { width: 20px; height: 20px; min-height: 0; flex: none; accent-color: var(--orange); }
+  .two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px; }
+  .two > div { min-width: 0; }
+  ul.admins .meta { color: var(--muted); font-size: .85rem; display: block; }
+  ul.admins .pct { font-family: var(--font-display); color: var(--orange-text, var(--orange)); margin-left: 8px; }
+  ul.admins li > span.grow { min-width: 0; flex: 1 1 200px; }
+  input.code { text-transform: uppercase; font-family: var(--font-mono); }
 
-  @media (max-width: 760px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+  @media (max-width: 760px) { .grid { grid-template-columns: minmax(0, 1fr); } .two, .checks { grid-template-columns: minmax(0, 1fr); } }
   @media (prefers-reduced-motion: reduce) { button.primary:active { transform: none; } }
 </style>
 </head>
@@ -166,6 +175,54 @@
         </form>
       </section>
 
+      <section class="panel wide" id="sale-panel" hidden>
+        <h2>Скидка для всех</h2>
+        <p class="hint">Скидка применяется автоматически, промокод вводить не нужно. Она действует в выбранное время и только на выбранные товары.</p>
+        <form id="sale-form">
+          <div class="two">
+            <div>
+              <label for="sa-title">Название (необязательно)</label>
+              <input id="sa-title" type="text" maxlength="60" placeholder="Например: Осенняя распродажа">
+            </div>
+            <div>
+              <label for="sa-pct">Скидка, %</label>
+              <input id="sa-pct" type="number" min="1" max="95" step="1" inputmode="numeric" required>
+            </div>
+            <div>
+              <label for="sa-start">Начало</label>
+              <input id="sa-start" type="datetime-local" required>
+            </div>
+            <div>
+              <label for="sa-end">Конец</label>
+              <input id="sa-end" type="datetime-local" required>
+            </div>
+          </div>
+          <label>На какие товары</label>
+          <div class="checks" id="sa-products"></div>
+          <button class="primary" type="submit">Запустить скидку</button>
+          <p class="msg" id="sa-out" role="status"></p>
+        </form>
+        <h2 style="margin-top:22px">Скидки сейчас и в планах</h2>
+        <ul class="admins" id="sale-list"></ul>
+        <p class="msg" id="sa-list-msg" role="status"></p>
+      </section>
+
+      <section class="panel" id="promo-panel" hidden>
+        <h2>Промокоды</h2>
+        <form id="promo-form">
+          <label for="pr-code">Промокод</label>
+          <input id="pr-code" class="code" type="text" maxlength="24" minlength="3" autocomplete="off" autocapitalize="characters" spellcheck="false" required>
+          <p class="hint">3–24 символа: латиница, цифры, - и _. Регистр не важен.</p>
+          <label for="pr-pct">Скидка, %</label>
+          <input id="pr-pct" type="number" min="1" max="95" step="1" inputmode="numeric" required>
+          <button class="primary" type="submit">Создать промокод</button>
+          <p class="msg" id="pr-out" role="status"></p>
+        </form>
+        <h2 style="margin-top:22px">Действующие промокоды</h2>
+        <ul class="admins" id="promo-list"></ul>
+        <p class="msg" id="pr-list-msg" role="status"></p>
+      </section>
+
       <section class="panel" id="people-panel" hidden>
         <h2>Аккаунты</h2>
         <ul class="admins" id="admin-list"></ul>
@@ -214,6 +271,8 @@
     if (/Password should be|at least/i.test(m)) return 'Пароль слишком короткий или простой';
     if (/rate limit|too many/i.test(m)) return 'Слишком много попыток. Подожди несколько минут.';
     if (/invalid.*email|email.*invalid/i.test(m)) return 'Почта выглядит неправильно';
+    if (/duplicate key|already exists/i.test(m) || (e && e.code === '23505')) return 'Такой промокод уже есть';
+    if (/row-level security|permission denied/i.test(m)) return 'Нет прав на это действие';
     if (/Failed to fetch|NetworkError/i.test(m)) return 'Нет связи с сервером. Проверь интернет.';
     return m || 'Что-то пошло не так';
   }
@@ -247,9 +306,11 @@
     var staff = isStaff();
     $('status-panel').hidden = !staff;
     $('people-panel').hidden = !staff;
+    $('promo-panel').hidden = !staff;
+    $('sale-panel').hidden = !staff;
     $('noaccess').hidden = staff;
     $('panel-sub').hidden = !staff;
-    if (staff) { loadStatus(); loadPeople(); }
+    if (staff) { loadStatus(); loadPeople(); loadPromos(); loadSales(); initSaleForm(); }
   }
 
   function loadMe() {
@@ -317,6 +378,194 @@
       });
     });
   }
+
+
+  /* ---------- промокоды и скидки ---------- */
+  var PRODUCTS = [['wanderer', 'Wanderer'], ['pathfinder', 'Pathfinder'], ['seeker', 'Seeker'], ['artisan', 'Artisan'], ['hero', 'Hero'], ['legend', 'Legend'], ['titan', 'Titan'], ['winter', 'Winter Guardian']];
+  var PNAME = {};
+  PRODUCTS.forEach(function (p) { PNAME[p[0]] = p[1]; });
+
+  function armDelete(btn, run) {
+    var armed = false;
+    btn.addEventListener('click', function () {
+      if (!armed) {
+        armed = true;
+        btn.textContent = 'Точно удалить?';
+        btn.className = 'danger sure';
+        setTimeout(function () { armed = false; btn.textContent = 'Удалить'; btn.className = 'danger'; }, 4000);
+        return;
+      }
+      btn.disabled = true;
+      run(btn);
+    });
+  }
+  function deleteBtn(run) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'danger';
+    btn.textContent = 'Удалить';
+    armDelete(btn, run);
+    return btn;
+  }
+
+  function loadPromos() {
+    sb.from('promo_codes').select('code,percent,created_at').order('created_at', { ascending: false }).then(function (q) {
+      if (q.error) { say('pr-list-msg', human(q.error), 'err'); return; }
+      var ul = $('promo-list');
+      ul.textContent = '';
+      if (!q.data.length) {
+        var empty = document.createElement('li');
+        empty.textContent = 'Промокодов пока нет';
+        ul.appendChild(empty);
+        return;
+      }
+      q.data.forEach(function (c) {
+        var li = document.createElement('li');
+        var name = document.createElement('span');
+        name.className = 'name grow';
+        name.textContent = c.code;
+        var pct = document.createElement('span');
+        pct.className = 'pct';
+        pct.textContent = '−' + c.percent + '%';
+        name.appendChild(pct);
+        li.appendChild(name);
+        li.appendChild(deleteBtn(function (btn) {
+          sb.from('promo_codes').delete().eq('code', c.code).select('code').then(function (r) {
+            if (r.error || !r.data || !r.data.length) { say('pr-list-msg', r.error ? human(r.error) : 'Нет прав на это действие', 'err'); btn.disabled = false; return; }
+            say('pr-list-msg', 'Промокод ' + c.code + ' удалён', 'good');
+            loadPromos();
+          });
+        }));
+        ul.appendChild(li);
+      });
+    });
+  }
+
+  $('promo-form').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var form = ev.target;
+    var code = $('pr-code').value.trim().toUpperCase();
+    var pct = parseInt($('pr-pct').value, 10);
+    if (!/^[A-Z0-9_-]{3,24}$/.test(code)) { say('pr-out', 'Код: 3–24 символа, латиница, цифры, - и _', 'err'); return; }
+    if (!(pct >= 1 && pct <= 95)) { say('pr-out', 'Скидка должна быть от 1 до 95%', 'err'); return; }
+    busy(form, true);
+    say('pr-out', 'Создаём…');
+    sb.from('promo_codes').insert({ code: code, percent: pct, created_by: me.id }).then(function (q) {
+      if (q.error) throw q.error;
+      say('pr-out', 'Промокод ' + code + ' создан: −' + pct + '%', 'good');
+      $('pr-code').value = '';
+      $('pr-pct').value = '';
+      loadPromos();
+    }).catch(function (e) { say('pr-out', human(e), 'err'); }).then(function () { busy(form, false); });
+  });
+
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function localInput(d) {
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+  var saleReady = false;
+  function initSaleForm() {
+    var now = new Date();
+    if (!$('sa-start').value) $('sa-start').value = localInput(now);
+    if (!$('sa-end').value) $('sa-end').value = localInput(new Date(now.getTime() + 7 * 24 * 3600 * 1000));
+    if (saleReady) return;
+    saleReady = true;
+    var host = $('sa-products');
+    function box(value, text) {
+      var l = document.createElement('label');
+      var i = document.createElement('input');
+      i.type = 'checkbox';
+      i.value = value;
+      l.appendChild(i);
+      l.appendChild(document.createTextNode(text));
+      host.appendChild(l);
+      return i;
+    }
+    var all = box('all', 'Все товары');
+    all.checked = true;
+    var singles = PRODUCTS.map(function (p) { return box(p[0], p[1]); });
+    function sync() { singles.forEach(function (i) { i.disabled = all.checked; if (all.checked) i.checked = false; }); }
+    all.addEventListener('change', sync);
+    sync();
+  }
+
+  function fmt(iso) {
+    return new Date(iso).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+
+  function loadSales() {
+    sb.from('sales').select('id,title,percent,products,starts_at,ends_at').gt('ends_at', new Date().toISOString()).order('starts_at', { ascending: true }).then(function (q) {
+      if (q.error) { say('sa-list-msg', human(q.error), 'err'); return; }
+      var ul = $('sale-list');
+      ul.textContent = '';
+      if (!q.data.length) {
+        var empty = document.createElement('li');
+        empty.textContent = 'Скидок сейчас нет';
+        ul.appendChild(empty);
+        return;
+      }
+      var now = Date.now();
+      q.data.forEach(function (a) {
+        var li = document.createElement('li');
+        var box = document.createElement('span');
+        box.className = 'name grow';
+        box.textContent = (a.title || 'Скидка');
+        var pct = document.createElement('span');
+        pct.className = 'pct';
+        pct.textContent = '−' + a.percent + '%';
+        box.appendChild(pct);
+        var live = new Date(a.starts_at).getTime() <= now;
+        var tag = document.createElement('span');
+        tag.className = 'tag';
+        tag.textContent = live ? 'ИДЁТ' : 'ЗАПЛАНИРОВАНА';
+        box.appendChild(tag);
+        var meta = document.createElement('span');
+        meta.className = 'meta';
+        var items = a.products.length ? a.products.map(function (id) { return PNAME[id] || id; }).join(', ') : 'все товары';
+        meta.textContent = fmt(a.starts_at) + ' – ' + fmt(a.ends_at) + ' · ' + items;
+        box.appendChild(meta);
+        li.appendChild(box);
+        li.appendChild(deleteBtn(function (btn) {
+          sb.from('sales').delete().eq('id', a.id).select('id').then(function (r) {
+            if (r.error || !r.data || !r.data.length) { say('sa-list-msg', r.error ? human(r.error) : 'Нет прав на это действие', 'err'); btn.disabled = false; return; }
+            say('sa-list-msg', 'Скидка удалена', 'good');
+            loadSales();
+          });
+        }));
+        ul.appendChild(li);
+      });
+    });
+  }
+
+  $('sale-form').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var form = ev.target;
+    var pct = parseInt($('sa-pct').value, 10);
+    var start = new Date($('sa-start').value);
+    var end = new Date($('sa-end').value);
+    if (!(pct >= 1 && pct <= 95)) { say('sa-out', 'Скидка должна быть от 1 до 95%', 'err'); return; }
+    if (isNaN(start) || isNaN(end) || end <= start) { say('sa-out', 'Конец должен быть позже начала', 'err'); return; }
+    if (end.getTime() <= Date.now()) { say('sa-out', 'Конец скидки уже в прошлом', 'err'); return; }
+    var chosen = [].slice.call($('sa-products').querySelectorAll('input')).filter(function (i) { return i.checked && i.value !== 'all'; }).map(function (i) { return i.value; });
+    var allBox = $('sa-products').querySelector('input[value=all]');
+    if (!allBox.checked && !chosen.length) { say('sa-out', 'Выбери товары или отметь «Все товары»', 'err'); return; }
+    busy(form, true);
+    say('sa-out', 'Запускаем…');
+    sb.from('sales').insert({
+      title: $('sa-title').value.trim(),
+      percent: pct,
+      products: allBox.checked ? [] : chosen,
+      starts_at: start.toISOString(),
+      ends_at: end.toISOString(),
+      created_by: me.id
+    }).then(function (q) {
+      if (q.error) throw q.error;
+      say('sa-out', 'Скидка −' + pct + '% добавлена', 'good');
+      $('sa-title').value = '';
+      $('sa-pct').value = '';
+      loadSales();
+    }).catch(function (e) { say('sa-out', human(e), 'err'); }).then(function () { busy(form, false); });
+  });
 
   function setMode(reg) {
     registering = reg;

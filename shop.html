@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Магазин CoocksWorld</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=JetBrains+Mono:wght@500&family=Russo+One&display=swap">
+<script src="config.js"></script>
 <style>
   /* Layout: тёмная шапка как на главной, ниже сетка карточек привилегий; значок-шестигранник в цвете префикса вместо картинки */
   :root {
@@ -99,6 +100,14 @@
   button.off { background: var(--off-bg); color: var(--off-fg); border: 0; font-weight: 800; font-size: .95rem; padding: 12px 20px; min-height: 46px; width: 100%; }
   button.ghost { background: transparent; color: inherit; border: 2px solid var(--line); font-weight: 700; padding: 10px 18px; min-height: 46px; }
 
+  .sale-badge { position: absolute; top: 10px; left: 10px; background: var(--orange); color: var(--ink); font-family: var(--font-display); font-size: .95rem; padding: 2px 10px; }
+  .price s { font-family: var(--font-body); font-weight: 700; font-size: 1rem; color: var(--muted); margin-right: 10px; }
+  .note { margin: 0; color: var(--muted); font-size: .9rem; min-height: 1.3em; }
+  .promo { display: grid; gap: 8px; }
+  .promo label { font-weight: 800; font-size: .9rem; }
+  .promo-row { display: flex; gap: 10px; }
+  .promo-row input { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 1rem; text-transform: uppercase; background: var(--bg); color: var(--fg); border: 2px solid var(--line); padding: 10px 12px; min-height: 46px; border-radius: 0; }
+  .promo-row button { flex: none; }
   .prefix { display: inline-block; font-family: var(--font-mono); font-weight: 500; background: #14181F; padding: 3px 10px; font-size: .95rem; }
   .grad { background: linear-gradient(90deg, #FFAA00, #FF55FF, #55FFFF); -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; }
 
@@ -182,11 +191,20 @@
       <div>
         <h3 id="dlg-title"></h3>
         <p class="price" id="dlg-price"></p>
+        <p class="note" id="dlg-why"></p>
       </div>
     </div>
     <div><span class="prefix" id="dlg-prefix"></span></div>
     <p class="includes" id="dlg-inc" hidden></p>
     <ul class="perks" id="dlg-perks"></ul>
+    <div class="promo">
+      <label for="promo-in">Промокод</label>
+      <div class="promo-row">
+        <input id="promo-in" type="text" maxlength="24" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Введи промокод">
+        <button class="ghost" id="promo-apply" type="button">Применить</button>
+      </div>
+      <p class="note" id="promo-note" role="status"></p>
+    </div>
     <div class="actions">
       <button class="off" id="buy" type="button" aria-describedby="buy-msg">Купить</button>
       <button class="ghost" id="close" type="button">Закрыть</button>
@@ -252,9 +270,34 @@
     return svg;
   }
 
-  function priceNode(r) {
-    var p = el('p', 'price', r.price + ' ₽');
-    if (r.season) p.appendChild(el('small', null, r.season));
+  var URL_ = (window.CW_SUPABASE_URL || '').replace(/\/+$/, '');
+  var KEY = window.CW_SUPABASE_KEY || '';
+  var sales = [];
+  var promo = { code: '', pct: 0 };
+
+  function salePct(r) {
+    var m = 0;
+    sales.forEach(function (x) {
+      if (!x.products.length || x.products.indexOf(r.id) >= 0) m = Math.max(m, x.percent);
+    });
+    return m;
+  }
+  function cut(price, pct) { return Math.max(1, Math.round(price * (100 - pct) / 100)); }
+
+  function setPrice(node, r, pct) {
+    node.textContent = '';
+    if (pct > 0) {
+      node.appendChild(el('s', null, r.price + ' ₽'));
+      node.appendChild(document.createTextNode(cut(r.price, pct) + ' ₽'));
+    } else {
+      node.textContent = r.price + ' ₽';
+    }
+    if (r.season) node.appendChild(el('small', null, r.season));
+  }
+
+  function priceNode(r, pct) {
+    var p = el('p', 'price');
+    setPrice(p, r, pct);
     return p;
   }
 
@@ -271,17 +314,34 @@
   var buyMsg = document.getElementById('buy-msg');
   var current = null;
 
+  function showDialogPrice() {
+    if (!current) return;
+    var sp = salePct(current);
+    var pp = promo.pct;
+    var pct = Math.max(sp, pp);
+    setPrice(document.getElementById('dlg-price'), current, pct);
+    var why = '';
+    if (pct === 0) {
+      why = '';
+    } else if (pp > sp) {
+      why = 'Промокод ' + promo.code + ': −' + pp + '%.' + (sp > 0 ? ' Скидка по акции −' + sp + '% меньше, скидки не суммируются.' : '');
+    } else {
+      why = 'Скидка по акции: −' + sp + '%.' + (pp > 0 ? ' Промокод ' + promo.code + ' даёт не больше, скидки не суммируются.' : '');
+    }
+    document.getElementById('dlg-why').textContent = why;
+  }
+
   function openRank(r, index, list) {
     current = r;
     buyMsg.textContent = '';
+    promoIn.value = promo.code;
+    promoNote.textContent = promo.pct ? 'Промокод применён: −' + promo.pct + '%.' : '';
     dlg.style.setProperty('--accent', r.color);
     document.getElementById('dlg-title').textContent = r.name;
-    var pr = document.getElementById('dlg-price');
-    pr.textContent = r.price + ' ₽';
-    if (r.season) pr.appendChild(el('small', null, r.season));
     var pic = document.getElementById('dlg-pic');
     pic.textContent = '';
     pic.appendChild(badge(r));
+    showDialogPrice();
     prefixNode(document.getElementById('dlg-prefix'), r);
     var inc = document.getElementById('dlg-inc');
     if (list === RANKS && index > 0) {
@@ -303,10 +363,12 @@
       var pic = el('div', 'pic');
       pic.appendChild(badge(r));
       if (r.season) pic.appendChild(el('span', 'tag', 'Сезон'));
+      var sp = salePct(r);
+      if (sp > 0) pic.appendChild(el('span', 'sale-badge', '−' + sp + '%'));
       var body = el('div', 'body');
       body.appendChild(el('h3', null, r.name));
       body.appendChild(el('p', 'meta', r.tagline));
-      body.appendChild(priceNode(r));
+      body.appendChild(priceNode(r, sp));
       var btn = el('button', 'primary more', 'Подробнее');
       btn.type = 'button';
       btn.setAttribute('aria-label', 'Подробнее о привилегии ' + r.name);
@@ -318,8 +380,64 @@
     });
   }
 
-  render(RANKS, document.getElementById('ranks'));
-  render(SEASON, document.getElementById('season'));
+  function renderAll() {
+    var a = document.getElementById('ranks');
+    var b = document.getElementById('season');
+    a.textContent = '';
+    b.textContent = '';
+    render(RANKS, a);
+    render(SEASON, b);
+    if (dlg.open) showDialogPrice();
+  }
+  renderAll();
+
+  function loadSales() {
+    if (!URL_ || !KEY || !window.fetch) return;
+    var now = encodeURIComponent(new Date().toISOString());
+    fetch(URL_ + '/rest/v1/sales?select=percent,products,starts_at,ends_at&starts_at=lte.' + now + '&ends_at=gt.' + now, {
+      headers: { apikey: KEY, Authorization: 'Bearer ' + KEY }
+    }).then(function (r) { return r.ok ? r.json() : Promise.reject(); }).then(function (rows) {
+      sales = (rows || []).filter(function (x) { return x && typeof x.percent === 'number' && Array.isArray(x.products); });
+      renderAll();
+    }).catch(function () {});
+  }
+  loadSales();
+  setInterval(loadSales, 300000);
+
+  var promoIn = document.getElementById('promo-in');
+  var promoBtn = document.getElementById('promo-apply');
+  var promoNote = document.getElementById('promo-note');
+  function applyPromo() {
+    var code = promoIn.value.trim().toUpperCase();
+    if (!code) {
+      promo = { code: '', pct: 0 };
+      promoNote.textContent = 'Введи промокод.';
+      showDialogPrice();
+      return;
+    }
+    if (!/^[A-Z0-9_-]{3,24}$/.test(code)) { promoNote.textContent = 'Такого промокода нет.'; return; }
+    if (!URL_ || !KEY || !window.fetch) { promoNote.textContent = 'Промокоды сейчас недоступны.'; return; }
+    promoBtn.disabled = true;
+    promoNote.textContent = 'Проверяем…';
+    fetch(URL_ + '/rest/v1/rpc/check_promo', {
+      method: 'POST',
+      headers: { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_code: code })
+    }).then(function (r) { return r.ok ? r.json() : Promise.reject(); }).then(function (pct) {
+      if (typeof pct === 'number' && pct > 0) {
+        promo = { code: code, pct: pct };
+        promoNote.textContent = 'Промокод применён: −' + pct + '%.';
+      } else {
+        promo = { code: '', pct: 0 };
+        promoNote.textContent = 'Такого промокода нет.';
+      }
+      showDialogPrice();
+    }).catch(function () {
+      promoNote.textContent = 'Не удалось проверить промокод. Попробуй позже.';
+    }).then(function () { promoBtn.disabled = false; });
+  }
+  promoBtn.addEventListener('click', applyPromo);
+  promoIn.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') { ev.preventDefault(); applyPromo(); } });
 
   buy.addEventListener('click', function () {
     buyMsg.textContent = 'Покупка временно недоступна.';
