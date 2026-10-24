@@ -82,16 +82,17 @@
   section > .inner > h2 { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.6rem, 4vw, 2.1rem); line-height: 1.1; margin: 0 0 10px; border-left: 8px solid var(--orange); padding-left: 14px; text-transform: uppercase; }
   .sub { color: var(--muted); margin: 0 0 28px; max-width: 62ch; }
 
-  .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 20px; }
   .card { background: var(--surface); display: flex; flex-direction: column; min-width: 0; border-bottom: 5px solid var(--accent, var(--orange)); }
-  .pic { background: var(--hero-bg); display: grid; place-items: center; padding: 22px 16px; position: relative; }
-  .pic svg { width: 112px; height: 124px; display: block; }
+  .pic { background: var(--hero-bg); display: block; padding: 0; position: relative; aspect-ratio: 1 / 1; overflow: hidden; }
+  .pic svg { width: 100%; height: 100%; display: block; }
+  .pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .tag { position: absolute; top: 10px; right: 10px; background: var(--orange); color: var(--ink); font-weight: 800; font-size: .72rem; letter-spacing: .04em; padding: 2px 8px; text-transform: uppercase; }
   .body { display: flex; flex-direction: column; gap: 6px; padding: 18px 18px 20px; flex: 1; }
-  .body h3 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 1.35rem; text-transform: uppercase; overflow-wrap: anywhere; }
+  .body h3 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 1.15rem; text-transform: uppercase; overflow-wrap: anywhere; }
   .meta { margin: 0; color: var(--muted); font-size: .92rem; }
   .price { margin: 6px 0 12px; font-family: var(--font-display); font-size: 1.9rem; line-height: 1; }
-  .price small { font-family: var(--font-body); font-weight: 700; font-size: .85rem; color: var(--muted); margin-left: 6px; }
+  .price small { display: block; font-family: var(--font-body); font-weight: 700; font-size: .8rem; color: var(--muted); margin: 6px 0 0; }
   .body .more { margin-top: auto; }
 
   button { font-family: var(--font-body); cursor: pointer; }
@@ -115,8 +116,8 @@
   dialog::backdrop { background: rgba(5, 8, 12, .72); }
   .dlg { padding: 22px 22px 24px; display: grid; gap: 14px; }
   .dlg-head { display: flex; align-items: center; gap: 16px; }
-  .dlg-head .pic { padding: 8px; flex: none; }
-  .dlg-head .pic svg { width: 72px; height: 80px; }
+  .dlg-head .pic { flex: none; width: 96px; height: 96px; }
+  .dlg-head .pic svg { width: 100%; height: 100%; }
   .dlg-head h3 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 1.6rem; text-transform: uppercase; line-height: 1.1; overflow-wrap: anywhere; }
   .dlg-head .price { margin: 6px 0 0; font-size: 1.5rem; }
   .includes { margin: 0; padding: 10px 14px; background: var(--surface); border-left: 5px solid var(--orange); font-size: .92rem; color: var(--muted); }
@@ -130,9 +131,9 @@
   footer .inner { padding-block: 28px; display: grid; gap: 4px; font-size: .92rem; }
   footer a { color: var(--orange); }
 
-  @media (max-width: 860px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (max-width: 540px) {
-    .grid { grid-template-columns: minmax(0, 1fr); }
+    .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .body { padding: 14px 12px 16px; }
     .actions { grid-template-columns: minmax(0, 1fr); }
   }
   @media (prefers-reduced-motion: reduce) { button.primary:active { transform: none; } }
@@ -299,6 +300,170 @@
     return svg;
   }
 
+  /* ---------- Иллюстрации товаров: пиксельные персонажи, нарисованные кодом ---------- */
+  var artUid = 0;
+  function U(x, y, w, h, c, o) {
+    return '<rect x="' + x * 8 + '" y="' + y * 8 + '" width="' + w * 8 + '" height="' + h * 8 + '" fill="' + c + '"' + (o != null ? ' opacity="' + o + '"' : '') + '/>';
+  }
+  function plus(cx, cy, c, s, o) {
+    return U(cx - s / 2, cy - 0.5, s, 1, c, o) + U(cx - 0.5, cy - s / 2, 1, s, c, o);
+  }
+  function sparks(seed, c, n) {
+    var h = 7, i;
+    for (i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+    var out = '';
+    for (i = 0; i < n; i++) {
+      h = (h * 1664525 + 1013904223) >>> 0;
+      var x = 1 + (h % 23);
+      h = (h * 1664525 + 1013904223) >>> 0;
+      var y = 1 + (h % 15);
+      out += plus(x, y, c, i % 3 === 0 ? 3 : 1.5, 0.35 + (i % 4) * 0.15);
+    }
+    return out;
+  }
+
+  function person(o) {
+    var s = o.skin || '#F2C29B', sd = '#d9a47e', h = o.hair || '#3a2a1a', out = '';
+    var aw = o.armW || 2;
+    var shoe = o.shoe || '#3a2a1d';
+    if (o.back) out += o.back;
+    out += U(9, 18, 3, 3, o.pants) + U(12, 18, 3, 3, o.pants) + U(11.9, 18, 0.2, 3, '#000', 0.2);
+    out += U(9, 21, 3, 1, shoe) + U(12, 21, 3, 1, shoe);
+    out += U(8, 12, 8, 6, o.shirt) + U(8, 12, 8, 1, '#fff', 0.18) + U(8, 17, 8, 1, '#000', 0.18);
+    if (o.bodyExtra) out += o.bodyExtra;
+    var sl = o.sleeve || o.shirt;
+    out += U(8 - aw, 12, aw, 4, sl) + U(16, 12, aw, 4, sl) + U(8 - aw, 16, aw, 1.2, s) + U(16, 16, aw, 1.2, s);
+    out += U(8 - aw, 12, aw, 1, '#fff', 0.15) + U(16, 12, aw, 1, '#fff', 0.15);
+    if (o.longHair) out += U(7.2, 5, 9.6, 8, h) + U(7.2, 12, 2, 2.5, h) + U(14.8, 12, 2, 2.5, h);
+    out += U(8, 4, 8, 8, s) + U(8, 11, 8, 1, sd, 0.7);
+    out += U(10, 8, 1, 2, '#1b2230') + U(13, 8, 1, 2, '#1b2230') + U(10, 8, 0.5, 0.5, '#fff') + U(13, 8, 0.5, 0.5, '#fff');
+    out += U(9, 10, 1.2, 0.7, '#ff7a8a', 0.5) + U(13.8, 10, 1.2, 0.7, '#ff7a8a', 0.5) + U(11.5, 10.4, 1, 0.5, '#a2605a');
+    if (!o.noHair) {
+      out += U(8, 4, 8, 2, h) + U(8, 6, 1.5, 3, h) + U(14.5, 6, 1.5, 3, h) + U(8, 6, 3, 1, h) + U(13, 6, 3, 1, h);
+      if (o.spiky) out += U(9, 3, 1.5, 1.2, h) + U(11.2, 2.3, 1.6, 1.9, h) + U(13.5, 3, 1.5, 1.2, h);
+    }
+    if (o.front) out += o.front;
+    return out;
+  }
+
+  var ART_BG = {
+    wanderer:   ['#667180', '#222831', '#BFC7D1'],
+    pathfinder: ['#23863e', '#0c2615', '#55FF55'],
+    seeker:     ['#1b86a3', '#0a2230', '#55FFFF'],
+    artisan:    ['#c06f10', '#2b1807', '#FFC04D'],
+    hero:       ['#bf2b2b', '#2b0b0e', '#FF7777'],
+    legend:     ['#a533b8', '#240a31', '#FF88FF'],
+    titan:      ['#8a2f8a', '#101a35', '#FFAA00'],
+    winter:     ['#3a8fd0', '#0b2036', '#CFF6FF'],
+    unban:      ['#c9780b', '#2b1705', '#FFD36B'],
+    unmute:     ['#2f7db3', '#0a1e33', '#CFF1FF']
+  };
+
+  var SCENES = {
+    wanderer: function () {
+      var back = U(15, 12.3, 3.6, 5.2, '#7c4f26') + U(15, 12.3, 3.6, 1, '#a8713b') + U(16, 14, 1.6, 1.4, '#d4a24c');
+      var front = U(6, 3.6, 12, 1, '#5e3f22') + U(9, 1.6, 6, 2.2, '#7d5733') + U(9, 3, 6, 0.7, '#d4a24c');
+      var p = person({ shirt: '#8896a6', pants: '#5b4636', hair: '#5a3b22', back: back, front: front });
+      var staff = U(17, 5.5, 0.8, 16.5, '#8b5a2b') + U(16.2, 3.6, 2.4, 2.4, '#BFC7D1') + U(16.8, 4.2, 1.2, 1.2, '#fff', 0.8);
+      var pack = U(5, 12, 3, 0.9, '#5e3f22', 0.9);
+      return p + staff + pack;
+    },
+    pathfinder: function () {
+      var front = U(7.4, 3.4, 9.2, 2.8, '#2c8f3a') + U(7.4, 6, 1.4, 5.5, '#2c8f3a') + U(15.2, 6, 1.4, 5.5, '#2c8f3a') + U(8, 3.4, 8, 0.8, '#fff', 0.18);
+      var p = person({ shirt: '#3fbf4f', sleeve: '#2c8f3a', pants: '#4a3a2a', shoe: '#2c1d12', hair: '#2c8f3a', front: front, bodyExtra: U(8, 15.5, 8, 0.8, '#7c4f26') + U(11.4, 15.3, 1.2, 1.2, '#e5b23a') });
+      var cx = 40, cy = 138;
+      var compass = '<circle cx="' + cx + '" cy="' + cy + '" r="19" fill="#e5b23a" shape-rendering="auto"/><circle cx="' + cx + '" cy="' + cy + '" r="14" fill="#fff8e6" shape-rendering="auto"/>' +
+        '<polygon points="' + cx + ',' + (cy - 12) + ' ' + (cx + 4) + ',' + cy + ' ' + (cx - 4) + ',' + cy + '" fill="#e04040" shape-rendering="auto"/><polygon points="' + cx + ',' + (cy + 12) + ' ' + (cx + 4) + ',' + cy + ' ' + (cx - 4) + ',' + cy + '" fill="#3a5fd0" shape-rendering="auto"/>';
+      return p + compass;
+    },
+    seeker: function () {
+      var front = U(8, 5.2, 8, 0.8, '#1f2a3a') + U(9.2, 4.4, 2.6, 2, '#55FFFF') + U(12.2, 4.4, 2.6, 2, '#55FFFF') + U(9.5, 4.6, 1, 0.6, '#fff', 0.7) + U(12.5, 4.6, 1, 0.6, '#fff', 0.7);
+      var p = person({ shirt: '#2f8bb5', sleeve: '#2a6f95', pants: '#243447', hair: '#1f2f4a', spiky: true, front: front, bodyExtra: U(11.4, 12, 1.2, 6, '#fff', 0.35) });
+      var glow = '<circle cx="36" cy="140" r="30" fill="#FFD36B" opacity="0.28" shape-rendering="auto"/>';
+      var lantern = U(3.4, 15.4, 2.8, 3.4, '#ffd36b') + U(3.2, 15, 3.2, 0.7, '#4a3520') + U(3.2, 18.6, 3.2, 0.7, '#4a3520') + U(4.4, 14.2, 0.8, 1, '#4a3520') + U(4.3, 16.2, 1, 1.4, '#fff', 0.8);
+      return glow + p + lantern;
+    },
+    artisan: function () {
+      var anvil = U(1.5, 19, 5.5, 1.4, '#59636f') + U(2.2, 20.4, 4, 1.6, '#3f4852') + U(1, 18.4, 3, 0.9, '#59636f') + U(1.5, 19, 5.5, 0.4, '#fff', 0.2);
+      var front = U(8, 3.6, 8, 1.6, '#7a4a1e') + U(7.2, 5, 5, 0.8, '#7a4a1e');
+      var bodyExtra = U(9, 13.2, 6, 4.8, '#7a4a1e') + U(9.4, 12, 0.8, 1.4, '#7a4a1e') + U(13.8, 12, 0.8, 1.4, '#7a4a1e') + U(9, 13.2, 6, 0.6, '#fff', 0.15);
+      var p = person({ shirt: '#e08a2b', pants: '#3b2d22', hair: '#5a3b22', front: front, bodyExtra: bodyExtra });
+      var hammer = U(18, 8, 0.9, 9, '#8b5a2b') + U(16.4, 6.4, 4.2, 2.4, '#9aa4b0') + U(16.4, 6.4, 4.2, 0.7, '#fff', 0.35);
+      return anvil + p + hammer + plus(21.5, 5, '#FFD36B', 2.5, 0.9) + plus(15, 4.2, '#FFD36B', 1.6, 0.8) + plus(22.5, 9.5, '#FFE9A8', 1.6, 0.8);
+    },
+    hero: function () {
+      var back = U(6.6, 12, 10.8, 9, '#a82525') + U(6.6, 12, 10.8, 1, '#7a1717') + U(7.4, 19.5, 9.2, 1.5, '#7a1717');
+      var front = U(8, 5.6, 8, 0.9, '#e04040');
+      var p = person({ shirt: '#e04545', sleeve: '#e04545', pants: '#3a4150', hair: '#6a4a1c', spiky: true, back: back, front: front, bodyExtra: U(8, 16, 8, 0.9, '#e5b23a') + U(11.2, 15.8, 1.6, 1.3, '#ffd36b') });
+      var sword = U(17.3, 2.4, 1.2, 10.6, '#CFF6FF') + U(17.6, 2.4, 0.4, 10.6, '#fff', 0.8) + U(16.2, 13, 3.4, 0.9, '#d9b23a') + U(17.4, 13.9, 1, 2.3, '#6b4a2b');
+      return p + sword + plus(20.5, 4, '#fff', 2.5, 0.9);
+    },
+    legend: function () {
+      var w = '';
+      var rows = [[1, 9.5, 6.4], [1.8, 11, 5.8], [2.8, 12.5, 4.8], [4, 14, 3.6], [5, 15.5, 2.6]];
+      rows.forEach(function (r) {
+        w += U(r[0], r[1], r[2], 1.2, '#FF88FF', 0.85) + U(25 - r[0] - r[2], r[1], r[2], 1.2, '#FF88FF', 0.85);
+        w += U(r[0], r[1], r[2], 0.35, '#fff', 0.5) + U(25 - r[0] - r[2], r[1], r[2], 0.35, '#fff', 0.5);
+      });
+      var front = U(8.2, 2.8, 7.6, 1.4, '#ffd36b') + U(8.2, 1.6, 1.4, 1.3, '#ffd36b') + U(11.3, 1, 1.4, 1.9, '#ffd36b') + U(14.4, 1.6, 1.4, 1.3, '#ffd36b') + U(11.5, 3, 1, 1, '#ff55ff') + U(8.2, 2.8, 7.6, 0.4, '#fff', 0.4);
+      var p = person({ shirt: '#7b3fe4', sleeve: '#6a33c9', pants: '#3a2570', hair: '#f5d6ff', longHair: true, back: w, front: front, bodyExtra: U(11.3, 12, 1.4, 6, '#ffd36b') });
+      var orb = '<circle cx="168" cy="108" r="26" fill="#FF55FF" opacity="0.35" shape-rendering="auto"/><circle cx="168" cy="108" r="12" fill="#ffd0ff" shape-rendering="auto"/><circle cx="165" cy="105" r="4" fill="#fff" shape-rendering="auto"/>';
+      return p + orb;
+    },
+    titan: function (id) {
+      var aura = '<circle cx="100" cy="104" r="70" fill="url(#tg' + id + ')" opacity="0.55" shape-rendering="auto"/>';
+      var bolts = '<polygon points="22,20 38,20 30,40 42,40 20,70 26,46 16,46" fill="#FFE04D" shape-rendering="auto"/><polygon points="178,26 192,26 186,44 196,44 176,72 181,50 172,50" fill="#FFE04D" shape-rendering="auto"/>';
+      var front = U(8, 3.6, 8, 2.6, '#3b4350') + U(8, 3.6, 8, 0.6, '#fff', 0.2) + U(6.4, 1.6, 1.6, 3.4, '#ece4cc') + U(5.6, 1, 1.2, 1.6, '#ece4cc') + U(16, 1.6, 1.6, 3.4, '#ece4cc') + U(17.2, 1, 1.2, 1.6, '#ece4cc') + U(10, 8, 1, 2, '#FF55FF') + U(13, 8, 1, 2, '#FF55FF');
+      var pads = U(4.2, 11.4, 3.8, 2.2, '#4a5360') + U(16, 11.4, 3.8, 2.2, '#4a5360') + U(4.2, 11.4, 3.8, 0.5, '#fff', 0.25) + U(16, 11.4, 3.8, 0.5, '#fff', 0.25);
+      var p = person({ skin: '#cf935f', shirt: '#2d3440', sleeve: '#cf935f', armW: 3.6, pants: '#262c36', shoe: '#14181f', hair: '#2a1a0e', front: front, bodyExtra: U(10, 13, 4, 3.5, '#FFAA00') + U(10.8, 13.8, 2.4, 1.9, '#FF55FF') });
+      return aura + bolts + p + pads;
+    },
+    winter: function () {
+      var front = U(8, 3.4, 8, 1.4, '#fff') + U(8.6, 1.8, 6.8, 1.7, '#d73535') + U(12.6, 0.8, 3.2, 1.2, '#d73535') + U(15.4, 0.2, 1.8, 1.8, '#fff');
+      var p = person({ shirt: '#3a6fd8', sleeve: '#3a6fd8', pants: '#223a73', hair: '#f4f1e6', front: front, bodyExtra: U(8, 11.8, 8, 1.1, '#fff') + U(11.5, 13.5, 1, 1, '#fff') + U(11.5, 15.5, 1, 1, '#fff') });
+      var staff = U(17.2, 6, 0.8, 16, '#cfe9ff') + U(16.2, 2.6, 2.8, 4, '#9ff0ff') + U(16.8, 3, 0.8, 2.4, '#fff', 0.8);
+      return p + staff + plus(4, 6, '#fff', 3, 1) + plus(21, 19, '#fff', 2.2, 0.9) + plus(5, 17, '#fff', 2, 0.8) + plus(20.5, 3.5, '#fff', 2, 0.8);
+    },
+    unban: function () {
+      var body = U(7.5, 11, 10, 8, '#FFA70F') + U(7.5, 11, 10, 1.2, '#FFD36B') + U(7.5, 18, 10, 1, '#b36a0a');
+      var hole = U(11.7, 13.4, 1.6, 3.2, '#3a2200') + '<circle cx="100" cy="116" r="9" fill="#3a2200" shape-rendering="auto"/>';
+      var shackle = U(9.3, 4.5, 1.8, 6.6, '#E4E9F0') + U(9.3, 3.2, 8.4, 1.8, '#E4E9F0') + U(15.9, 3.2, 1.8, 3.6, '#E4E9F0') + U(9.3, 3.2, 8.4, 0.5, '#fff', 0.6);
+      var chain = U(1.5, 17.5, 3, 1.6, '#9aa4b0') + U(1.9, 17.9, 2.2, 0.8, '#222831') + U(4.2, 19.2, 3, 1.6, '#9aa4b0') + U(4.6, 19.6, 2.2, 0.8, '#222831') + U(2.6, 20.8, 2.4, 1.4, '#7a8592');
+      var key = U(19, 19, 4.5, 0.9, '#FFD36B') + U(22, 19.9, 0.9, 1.3, '#FFD36B') + U(20.5, 19.9, 0.9, 1, '#FFD36B') + '<circle cx="152" cy="155" r="9" fill="none" stroke="#FFD36B" stroke-width="6" shape-rendering="auto"/>';
+      return shackle + body + hole + chain + key + plus(21, 8, '#fff', 3, 0.9) + plus(3.5, 8, '#fff', 2.2, 0.8);
+    },
+    unmute: function () {
+      var cone = '<polygon points="50,86 82,86 118,56 118,144 82,114 50,114" fill="#F4F5F7" shape-rendering="auto"/><polygon points="82,86 118,56 118,70 82,96" fill="#fff" opacity="0.6" shape-rendering="auto"/>';
+      var base = U(5.5, 10.8, 1.6, 3.4, '#9fb0c4');
+      var waves = '<path d="M134 84 Q150 100 134 116" fill="none" stroke="#CFF1FF" stroke-width="7" stroke-linecap="square" shape-rendering="auto"/><path d="M146 68 Q172 100 146 132" fill="none" stroke="#CFF1FF" stroke-width="7" stroke-linecap="square" opacity="0.8" shape-rendering="auto"/><path d="M158 52 Q194 100 158 148" fill="none" stroke="#CFF1FF" stroke-width="7" stroke-linecap="square" opacity="0.55" shape-rendering="auto"/>';
+      var bubble = U(3, 3, 8, 4.2, '#fff') + U(4, 7.2, 1.6, 1.4, '#fff') + U(4.6, 4.7, 1, 1, '#2f7db3') + U(6.6, 4.7, 1, 1, '#2f7db3') + U(8.6, 4.7, 1, 1, '#2f7db3');
+      var bars = U(5, 19.4, 2, 1.4, '#CFF1FF', 0.9) + U(8, 18.2, 2, 2.6, '#CFF1FF', 0.9) + U(11, 17, 2, 3.8, '#CFF1FF', 0.9) + U(14, 18.2, 2, 2.6, '#CFF1FF', 0.9) + U(17, 19.4, 2, 1.4, '#CFF1FF', 0.9);
+      return base + cone + waves + bubble + bars;
+    }
+  };
+
+  function art(r) {
+    if (r.img) {
+      var im = document.createElement('img');
+      im.src = r.img;
+      im.alt = '';
+      return im;
+    }
+    var cfg = ART_BG[r.id] || ART_BG.wanderer;
+    var id = String(++artUid);
+    var defs = '<defs><linearGradient id="bg' + id + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + cfg[0] + '"/><stop offset="1" stop-color="' + cfg[1] + '"/></linearGradient>' +
+      '<radialGradient id="gl' + id + '" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="' + cfg[2] + '" stop-opacity="0.55"/><stop offset="1" stop-color="' + cfg[2] + '" stop-opacity="0"/></radialGradient>' +
+      '<linearGradient id="tg' + id + '" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFAA00"/><stop offset="0.5" stop-color="#FF55FF"/><stop offset="1" stop-color="#55FFFF"/></linearGradient></defs>';
+    var base = '<rect width="200" height="200" fill="url(#bg' + id + ')"/><circle cx="100" cy="104" r="92" fill="url(#gl' + id + ')" shape-rendering="auto"/>' +
+      '<polygon points="100,14 174,57 174,143 100,186 26,143 26,57" fill="none" stroke="' + cfg[2] + '" stroke-width="4" opacity="0.3" shape-rendering="auto"/>' +
+      sparks(r.id, cfg[2], 14) + '<ellipse cx="100" cy="178" rx="52" ry="8" fill="#000" opacity="0.28" shape-rendering="auto"/>';
+    var scene = (SCENES[r.id] || SCENES.wanderer)(id);
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" shape-rendering="crispEdges" aria-hidden="true" focusable="false">' + defs + base + scene + '</svg>';
+    var d = document.createElement('div');
+    d.innerHTML = svg;
+    return d.firstChild;
+  }
+
   var URL_ = (window.CW_SUPABASE_URL || '').replace(/\/+$/, '');
   var KEY = window.CW_SUPABASE_KEY || '';
   var sales = [];
@@ -369,7 +534,7 @@
     document.getElementById('dlg-title').textContent = r.name;
     var pic = document.getElementById('dlg-pic');
     pic.textContent = '';
-    pic.appendChild(badge(r));
+    pic.appendChild(art(r));
     showDialogPrice();
     prefixNode(document.getElementById('dlg-prefix'), r);
     document.getElementById('dlg-prefix').parentNode.hidden = !!r.noPrefix;
@@ -391,7 +556,7 @@
       var card = el('article', 'card');
       card.style.setProperty('--accent', r.color);
       var pic = el('div', 'pic');
-      pic.appendChild(badge(r));
+      pic.appendChild(art(r));
       if (r.season) pic.appendChild(el('span', 'tag', 'Сезон'));
       var sp = salePct(r);
       if (sp > 0) pic.appendChild(el('span', 'sale-badge', '−' + sp + '%'));
