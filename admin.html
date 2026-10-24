@@ -136,8 +136,8 @@
       <label for="l-mail">Почта</label>
       <input id="l-mail" name="email" type="email" autocomplete="username" autocapitalize="off" spellcheck="false" required>
       <label for="l-pass">Пароль</label>
-      <input id="l-pass" name="password" type="password" autocomplete="current-password" minlength="10" maxlength="128" required>
-      <p class="hint" id="pass-hint" hidden>Не короче 10 символов. Права админа выдаёт владелец после регистрации.</p>
+      <input id="l-pass" name="password" type="password" autocomplete="current-password" minlength="6" maxlength="128" required>
+      <p class="hint" id="pass-hint" hidden>Не короче 6 символов. Права админа выдаёт владелец после регистрации.</p>
       <button class="primary" id="l-btn" type="submit">Войти</button>
       <p class="msg" id="l-msg" role="status"></p>
     </form>
@@ -179,10 +179,10 @@
           <label for="p-cur">Текущий пароль</label>
           <input id="p-cur" type="password" autocomplete="current-password" required>
           <label for="p-new">Новый пароль</label>
-          <input id="p-new" type="password" autocomplete="new-password" minlength="10" maxlength="128" required>
+          <input id="p-new" type="password" autocomplete="new-password" minlength="6" maxlength="128" required>
           <label for="p-rep">Новый пароль ещё раз</label>
-          <input id="p-rep" type="password" autocomplete="new-password" minlength="10" maxlength="128" required>
-          <p class="hint">Не короче 10 символов.</p>
+          <input id="p-rep" type="password" autocomplete="new-password" minlength="6" maxlength="128" required>
+          <p class="hint">Не короче 6 символов.</p>
           <button class="primary" type="submit">Сменить пароль</button>
           <p class="msg" id="p-out" role="status"></p>
         </form>
