@@ -114,12 +114,16 @@ try{var t=localStorage.getItem('cw_theme');if(t!=='light'&&t!=='dark'){t=window.
   .checks input { width: 20px; height: 20px; min-height: 0; flex: none; accent-color: var(--orange); }
   .two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px; }
   .two > div { min-width: 0; }
+  .three { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 14px; width: 100%; }
+  .three > div { min-width: 0; }
+  ul.admins li > .three select { min-height: 38px; padding: 4px 8px; }
+  ul.admins .acts { display: flex; flex-wrap: wrap; gap: 8px; }
   ul.admins .meta { color: var(--muted); font-size: .85rem; display: block; }
   ul.admins .pct { font-family: var(--font-display); color: var(--orange-text, var(--orange)); margin-left: 8px; }
   ul.admins li > span.grow { min-width: 0; flex: 1 1 200px; }
   input.code { text-transform: uppercase; font-family: var(--font-mono); }
 
-  @media (max-width: 760px) { .grid { grid-template-columns: minmax(0, 1fr); } .two, .checks { grid-template-columns: minmax(0, 1fr); } }
+  @media (max-width: 760px) { .grid { grid-template-columns: minmax(0, 1fr); } .two, .three, .checks { grid-template-columns: minmax(0, 1fr); } }
   @media (prefers-reduced-motion: reduce) { button.primary:active { transform: none; } }
   button.theme-btn { display: inline-grid; place-items: center; width: 36px; height: 36px; min-height: 0; padding: 0; margin: 0; background: transparent; color: var(--hero-muted); border: 2px solid currentColor; border-radius: 0; cursor: pointer; box-shadow: none; }
   button.theme-btn:hover { color: var(--orange); }
@@ -166,7 +170,7 @@ try{var t=localStorage.getItem('cw_theme');if(t!=='light'&&t!=='dark'){t=window.
   <!-- Панель -->
   <div id="panel-view" hidden>
     <p class="sub" id="panel-sub">Здесь можно менять статус сервера на сайте и сменить свой пароль.</p>
-    <p class="msg err" id="noaccess" hidden>У этого аккаунта пока нет прав админа. Попроси владельца выдать их и обнови страницу.</p>
+    <p class="msg err" id="noaccess" hidden>У этого аккаунта нет доступа к админ-панели. Модераторы работают прямо на форуме. Права админа выдаёт владелец.</p>
     <div class="grid">
       <section class="panel wide" id="status-panel" hidden>
         <h2>Статус сервера</h2>
@@ -183,6 +187,37 @@ try{var t=localStorage.getItem('cw_theme');if(t!=='light'&&t!=='dark'){t=window.
           <button class="primary" type="submit">Сохранить статус</button>
           <p class="msg" id="s-out" role="status"></p>
         </form>
+      </section>
+
+      <section class="panel wide" id="forum-panel" hidden>
+        <h2>Форум: разделы</h2>
+        <p class="hint">Раздел (ветка) задаёт, кто его видит, кто создаёт темы и кто отвечает. Права можно менять в любой момент. Отдельную тему можно ограничить уже на самом форуме. Модераторы видят этот список только на форуме.</p>
+        <form id="forum-form">
+          <div class="two">
+            <div>
+              <label for="f-title">Название раздела</label>
+              <input id="f-title" type="text" maxlength="60" required placeholder="Например: Объявления">
+            </div>
+            <div>
+              <label for="f-sort">Порядок (меньше = выше)</label>
+              <input id="f-sort" type="number" min="0" max="9999" step="1" value="100" inputmode="numeric">
+            </div>
+          </div>
+          <label for="f-desc">Описание (необязательно)</label>
+          <input id="f-desc" type="text" maxlength="200">
+          <div class="three">
+            <div><label for="f-read">Кто видит раздел</label>
+              <select id="f-read"><option value="guest">Все, даже гости</option><option value="user">Только вошедшие</option><option value="moder">Модераторы и админы</option><option value="admin">Только админы</option></select></div>
+            <div><label for="f-thread">Кто создаёт темы</label>
+              <select id="f-thread"><option value="user">Все игроки</option><option value="moder">Модераторы и админы</option><option value="admin">Только админы</option></select></div>
+            <div><label for="f-reply">Кто отвечает</label>
+              <select id="f-reply"><option value="user">Все игроки</option><option value="moder">Модераторы и админы</option><option value="admin">Только админы</option></select></div>
+          </div>
+          <button class="primary" type="submit">Создать раздел</button>
+          <p class="msg" id="f-out" role="status"></p>
+        </form>
+        <ul class="admins" id="forum-list"></ul>
+        <p class="msg" id="f-list-msg" role="status"></p>
       </section>
 
       <section class="panel wide" id="sale-panel" hidden>
@@ -237,6 +272,7 @@ try{var t=localStorage.getItem('cw_theme');if(t!=='light'&&t!=='dark'){t=window.
         <h2>Аккаунты</h2>
         <ul class="admins" id="admin-list"></ul>
         <p class="msg" id="a-list-msg" role="status"></p>
+        <p class="hint">Роли: игрок (user), модератор (moder) и админ (admin). Модератор не видит админку, зато следит за форумом: удаляет сообщения, закрепляет и закрывает темы. Админ ещё и меняет роли игрок/модератор; админов назначает только владелец.</p>
         <p class="hint">Новый админ сначала создаёт аккаунт на странице входа («Создать аккаунт»). Потом он появится здесь, и владелец нажимает «Сделать админом».</p>
       </section>
 
@@ -257,7 +293,7 @@ try{var t=localStorage.getItem('cw_theme');if(t!=='light'&&t!=='dark'){t=window.
     </div>
   </div>
 
-  <p class="back"><a href="./">← На сайт</a></p>
+  <p class="back"><a href="./">← На сайт</a> · <a href="forum.html">Форум</a></p>
 </main>
 
 <script>
@@ -298,7 +334,7 @@ try{var t=localStorage.getItem('cw_theme');if(t!=='light'&&t!=='dark'){t=window.
   var registering = false;
 
   function isStaff() { return me && (me.role === 'admin' || me.role === 'owner'); }
-  function roleLabel(r) { return r === 'owner' ? 'владелец' : r === 'admin' ? 'админ' : 'без прав'; }
+  function roleLabel(r) { return r === 'owner' ? 'владелец' : r === 'admin' ? 'админ' : r === 'moder' ? 'модератор' : 'игрок'; }
 
   function showLogin() {
     me = null;
@@ -318,9 +354,10 @@ try{var t=localStorage.getItem('cw_theme');if(t!=='light'&&t!=='dark'){t=window.
     $('people-panel').hidden = !staff;
     $('promo-panel').hidden = !staff;
     $('sale-panel').hidden = !staff;
+    $('forum-panel').hidden = !staff;
     $('noaccess').hidden = staff;
     $('panel-sub').hidden = !staff;
-    if (staff) { loadStatus(); loadPeople(); loadPromos(); loadSales(); initSaleForm(); }
+    if (staff) { loadStatus(); loadPeople(); loadPromos(); loadSales(); initSaleForm(); loadBoards(); }
   }
 
   function loadMe() {
@@ -375,20 +412,128 @@ try{var t=localStorage.getItem('cw_theme');if(t!=='light'&&t!=='dark'){t=window.
         if (a.role !== 'user') {
           var tag = document.createElement('span');
           tag.className = 'tag';
-          tag.textContent = a.role === 'owner' ? 'ВЛАДЕЛЕЦ' : 'АДМИН';
+          tag.textContent = a.role === 'owner' ? 'ВЛАДЕЛЕЦ' : a.role === 'admin' ? 'АДМИН' : 'МОДЕР';
           name.appendChild(tag);
         }
         li.appendChild(name);
-        if (me.role === 'owner' && a.role !== 'owner') {
-          li.appendChild(a.role === 'admin'
-            ? roleButton(a, 'user', 'Снять права', 'danger')
-            : roleButton(a, 'admin', 'Сделать админом', 'ghost'));
+        var acts = document.createElement('span');
+        acts.className = 'acts';
+        var isOwner = me.role === 'owner';
+        // владелец меняет любые роли, кроме своей; админ - только игрок <-> модератор
+        if (a.role === 'user') {
+          acts.appendChild(roleButton(a, 'moder', 'Сделать модератором', 'ghost'));
+          if (isOwner) acts.appendChild(roleButton(a, 'admin', 'Сделать админом', 'ghost'));
+        } else if (a.role === 'moder') {
+          acts.appendChild(roleButton(a, 'user', 'Снять права', 'danger'));
+          if (isOwner) acts.appendChild(roleButton(a, 'admin', 'Сделать админом', 'ghost'));
+        } else if (a.role === 'admin' && isOwner) {
+          acts.appendChild(roleButton(a, 'moder', 'Понизить до модератора', 'ghost'));
+          acts.appendChild(roleButton(a, 'user', 'Снять права', 'danger'));
         }
+        if (acts.firstChild) li.appendChild(acts);
         ul.appendChild(li);
       });
     });
   }
 
+
+
+  /* ---------- форум: разделы ---------- */
+  var WHO = { guest: 'все, даже гости', user: 'все игроки', moder: 'модераторы и админы', admin: 'только админы' };
+
+  function boardSelect(b, field, opts) {
+    var s = document.createElement('select');
+    s.setAttribute('aria-label', field);
+    opts.forEach(function (k) {
+      var o = document.createElement('option');
+      o.value = k;
+      o.textContent = WHO[k];
+      s.appendChild(o);
+    });
+    s.value = b[field];
+    s.addEventListener('change', function () {
+      var patch = {};
+      patch[field] = s.value;
+      s.disabled = true;
+      sb.from('forum_boards').update(patch).eq('id', b.id).select('id').then(function (q) {
+        if (q.error) throw q.error;
+        if (!q.data || !q.data.length) throw new Error('Нет прав на это действие');
+        b[field] = s.value;
+        say('f-list-msg', 'Сохранено: ' + b.title, 'good');
+      }).catch(function (e) { s.value = b[field]; say('f-list-msg', human(e), 'err'); })
+        .then(function () { s.disabled = false; });
+    });
+    return s;
+  }
+
+  function loadBoards() {
+    sb.from('forum_boards').select('*').order('sort', { ascending: true }).order('id', { ascending: true }).then(function (q) {
+      if (q.error) { say('f-list-msg', /relation|does not exist|schema cache/i.test(q.error.message || '') ? 'Таблиц форума ещё нет: выполни schema_forum.sql в Supabase' : human(q.error), 'err'); return; }
+      var ul = $('forum-list');
+      ul.textContent = '';
+      if (!q.data.length) { var e = document.createElement('li'); e.textContent = 'Разделов пока нет.'; ul.appendChild(e); return; }
+      q.data.forEach(function (b) {
+        var li = document.createElement('li');
+        var head = document.createElement('span');
+        head.className = 'grow';
+        var nm = document.createElement('span');
+        nm.className = 'name';
+        nm.textContent = b.title;
+        var meta = document.createElement('span');
+        meta.className = 'meta';
+        meta.textContent = b.description || '';
+        head.appendChild(nm);
+        head.appendChild(meta);
+        li.appendChild(head);
+        var box = document.createElement('div');
+        box.className = 'three';
+        function cell(label, ctl) {
+          var d = document.createElement('div');
+          var l = document.createElement('span');
+          l.className = 'meta';
+          l.textContent = label;
+          d.appendChild(l);
+          d.appendChild(ctl);
+          box.appendChild(d);
+        }
+        cell('Видят', boardSelect(b, 'read_min', ['guest', 'user', 'moder', 'admin']));
+        cell('Создают темы', boardSelect(b, 'thread_min', ['user', 'moder', 'admin']));
+        cell('Отвечают', boardSelect(b, 'reply_min', ['user', 'moder', 'admin']));
+        li.appendChild(box);
+        li.appendChild(deleteBtn(function (btn) {
+          sb.from('forum_boards').delete().eq('id', b.id).select('id').then(function (r) {
+            if (r.error) throw r.error;
+            if (!r.data || !r.data.length) throw new Error('Нет прав на это действие');
+            say('f-list-msg', 'Раздел «' + b.title + '» удалён вместе с темами', 'good');
+            loadBoards();
+          }).catch(function (e) { say('f-list-msg', human(e), 'err'); btn.disabled = false; });
+        }));
+        ul.appendChild(li);
+      });
+    });
+  }
+
+  $('forum-form').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var form = ev.target;
+    busy(form, true);
+    say('f-out', '');
+    sb.from('forum_boards').insert({
+      title: $('f-title').value.trim(),
+      description: $('f-desc').value.trim(),
+      read_min: $('f-read').value,
+      thread_min: $('f-thread').value,
+      reply_min: $('f-reply').value,
+      sort: parseInt($('f-sort').value, 10) || 0,
+      created_by: me.id
+    }).then(function (q) {
+      if (q.error) throw q.error;
+      say('f-out', 'Раздел создан', 'good');
+      $('f-title').value = ''; $('f-desc').value = '';
+      loadBoards();
+    }).catch(function (e) { say('f-out', human(e), 'err'); })
+      .then(function () { busy(form, false); });
+  });
 
   /* ---------- промокоды и скидки ---------- */
   var PRODUCTS = [['wanderer', 'Wanderer'], ['pathfinder', 'Pathfinder'], ['seeker', 'Seeker'], ['artisan', 'Artisan'], ['hero', 'Hero'], ['legend', 'Legend'], ['titan', 'Titan'], ['winter', 'Winter Guardian'], ['unban', 'Разбан'], ['unmute', 'Размут']];
