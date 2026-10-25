@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <title>Админка CoocksWorld</title>
+<script>/* тема: сохранённый выбор или системная */
+try{var t=localStorage.getItem('cw_theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}document.documentElement.setAttribute('data-theme',t);}catch(e){}
+</script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=JetBrains+Mono:wght@500&family=Russo+One&display=swap">
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
@@ -12,13 +15,13 @@
   :root {
     color-scheme: light;
     --orange: #FFA70F;
-    --orange-text: #A85F00;
+    --orange-text: #8F5000;
     --ink: #11161D;
-    --bg: #FFFFFF;
-    --surface: #F2F4F7;
+    --bg: #EDF0F5;
+    --surface: #FFFFFF;
     --fg: #11161D;
-    --muted: #4A5565;
-    --line: #D9DDE4;
+    --muted: #465163;
+    --line: #D0D7E2;
     --field: #FFFFFF;
     --danger: #B3261E;
     --ok: #1B7A3A;
@@ -70,6 +73,7 @@
   .band .inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; padding-block: 18px; }
   .brand { display: inline-flex; align-items: center; gap: 12px; color: var(--hero-fg); text-decoration: none; font-family: var(--font-display); font-size: 1.2rem; letter-spacing: .04em; }
   .logo { width: 40px; height: 40px; background: var(--logo) center / contain no-repeat; }
+  .tools { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
   .who { display: flex; align-items: center; gap: 14px; color: var(--hero-muted); font-size: .95rem; flex-wrap: wrap; }
   .who b { color: var(--hero-fg); }
 
@@ -117,15 +121,21 @@
 
   @media (max-width: 760px) { .grid { grid-template-columns: minmax(0, 1fr); } .two, .checks { grid-template-columns: minmax(0, 1fr); } }
   @media (prefers-reduced-motion: reduce) { button.primary:active { transform: none; } }
+  button.theme-btn { display: inline-grid; place-items: center; width: 36px; height: 36px; min-height: 0; padding: 0; margin: 0; background: transparent; color: var(--hero-muted); border: 2px solid currentColor; border-radius: 0; cursor: pointer; box-shadow: none; }
+  button.theme-btn:hover { color: var(--orange); }
+  button.theme-btn:focus-visible { outline: 3px solid var(--orange); outline-offset: 3px; }
 </style>
 </head>
 <body>
 <div class="band">
   <div class="inner">
     <a class="brand" href="./"><span class="logo" role="img" aria-label="Логотип CoocksWorld"></span>CoocksWorld</a>
-    <div class="who" id="who" hidden>
-      <span>Ты вошёл как <b id="who-name"></b> <span id="who-role"></span></span>
-      <button class="ghost" id="logout" type="button">Выйти</button>
+    <div class="tools">
+      <div class="who" id="who" hidden>
+        <span>Ты вошёл как <b id="who-name"></b> <span id="who-role"></span></span>
+        <button class="ghost" id="logout" type="button">Выйти</button>
+      </div>
+      <button class="theme-btn" id="theme-btn" type="button" aria-label="Переключить тему"></button>
     </div>
   </div>
 </div>
@@ -654,6 +664,34 @@
     if (r.data && r.data.session) return enter();
     showLogin();
   }).catch(function () { showLogin(); });
+})();
+</script>
+<script>
+(function () {
+  var root = document.documentElement, btn = document.getElementById('theme-btn');
+  if (!btn) return;
+  var mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  var SUN = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>', MOON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>';
+  function eff() { var t = root.getAttribute('data-theme'); return t === 'light' || t === 'dark' ? t : (mq && mq.matches ? 'dark' : 'light'); }
+  function paint() {
+    var dark = eff() === 'dark';
+    btn.innerHTML = dark ? SUN : MOON;
+    btn.setAttribute('aria-label', dark ? 'Включить светлую тему' : 'Включить тёмную тему');
+    btn.title = dark ? 'Светлая тема' : 'Тёмная тема';
+  }
+  btn.addEventListener('click', function () {
+    var next = eff() === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('cw_theme', next); } catch (e) {}
+    paint();
+  });
+  if (mq && mq.addEventListener) mq.addEventListener('change', function () {
+    var saved = null;
+    try { saved = localStorage.getItem('cw_theme'); } catch (e) {}
+    if (saved !== 'light' && saved !== 'dark') { root.setAttribute('data-theme', mq.matches ? 'dark' : 'light'); }
+    paint();
+  });
+  paint();
 })();
 </script>
 </body>

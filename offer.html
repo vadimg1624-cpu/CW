@@ -4,18 +4,21 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Публичная оферта CoocksWorld</title>
+<script>/* тема: сохранённый выбор или системная */
+try{var t=localStorage.getItem('cw_theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}document.documentElement.setAttribute('data-theme',t);}catch(e){}
+</script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=JetBrains+Mono:wght@500&family=Russo+One&display=swap">
 <style>
   /* Layout: шапка как на остальных страницах, ниже узкая колонка документа с автонумерацией разделов и пунктов */
   :root {
     --orange: #FFA70F;
-    --orange-text: #A85F00;
+    --orange-text: #8F5000;
     --ink: #11161D;
-    --bg: #FFFFFF;
-    --surface: #F2F4F7;
+    --bg: #EDF0F5;
+    --surface: #FFFFFF;
     --fg: #11161D;
-    --muted: #4A5565;
-    --line: #D9DDE4;
+    --muted: #465163;
+    --line: #D0D7E2;
     --fill-bg: #FFF1CF;
     --fill-fg: #5C3F00;
     --hero-bg: #0F141B;
@@ -111,6 +114,9 @@
     dl.card { grid-template-columns: minmax(0, 1fr); gap: 0; }
     dl.card dd { margin-bottom: 8px; }
   }
+  button.theme-btn { display: inline-grid; place-items: center; width: 36px; height: 36px; min-height: 0; padding: 0; margin: 0; background: transparent; color: var(--hero-muted); border: 2px solid currentColor; border-radius: 0; cursor: pointer; box-shadow: none; }
+  button.theme-btn:hover { color: var(--orange); }
+  button.theme-btn:focus-visible { outline: 3px solid var(--orange); outline-offset: 3px; }
 </style>
 </head>
 <body>
@@ -125,6 +131,7 @@
         <a href="index.html#join">Как зайти</a>
         <a href="index.html#links">Ссылки</a>
         <a class="admin-btn" href="admin.html" rel="nofollow">Админ-панель</a>
+        <button class="theme-btn" id="theme-btn" type="button" aria-label="Переключить тему"></button>
       </nav>
     </header>
     <div class="intro">
@@ -293,5 +300,33 @@
     <div><a href="shop.html">Магазин</a> · <a href="index.html#rules">Правила сервера</a> · <a href="https://discord.gg/hxzF6byvej" target="_blank" rel="noopener">Поддержка в Discord</a></div>
   </div>
 </footer>
+<script>
+(function () {
+  var root = document.documentElement, btn = document.getElementById('theme-btn');
+  if (!btn) return;
+  var mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  var SUN = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>', MOON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>';
+  function eff() { var t = root.getAttribute('data-theme'); return t === 'light' || t === 'dark' ? t : (mq && mq.matches ? 'dark' : 'light'); }
+  function paint() {
+    var dark = eff() === 'dark';
+    btn.innerHTML = dark ? SUN : MOON;
+    btn.setAttribute('aria-label', dark ? 'Включить светлую тему' : 'Включить тёмную тему');
+    btn.title = dark ? 'Светлая тема' : 'Тёмная тема';
+  }
+  btn.addEventListener('click', function () {
+    var next = eff() === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('cw_theme', next); } catch (e) {}
+    paint();
+  });
+  if (mq && mq.addEventListener) mq.addEventListener('change', function () {
+    var saved = null;
+    try { saved = localStorage.getItem('cw_theme'); } catch (e) {}
+    if (saved !== 'light' && saved !== 'dark') { root.setAttribute('data-theme', mq.matches ? 'dark' : 'light'); }
+    paint();
+  });
+  paint();
+})();
+</script>
 </body>
 </html>
