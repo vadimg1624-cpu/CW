@@ -172,6 +172,8 @@ try{var t=localStorage.getItem('cw_theme');if(t!=='light'&&t!=='dark'){t=window.
 
   .panel { background: var(--surface); border-top: 5px solid var(--orange); padding: 20px 22px 22px; margin-top: 22px; }
   .panel h3 { margin: 0 0 6px; font-family: var(--font-display); font-weight: 400; font-size: 1.1rem; text-transform: uppercase; }
+  .sbtns { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+  .banned h3 { color: var(--danger); }
   .modbar { background: var(--surface); border-left: 6px solid var(--moder); padding: 12px 16px; margin: 0 0 18px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
   .modbar b { margin-right: 4px; }
   .modbar select { width: auto; min-height: 38px; padding: 4px 10px; }
@@ -265,6 +267,30 @@ try{var t=localStorage.getItem('cw_theme');if(t!=='light'&&t!=='dark'){t=window.
   </form>
 </dialog>
 
+<dialog id="sanc-dlg" aria-labelledby="sanc-title">
+  <form class="dlg" id="sanc-form" method="dialog">
+    <h3 id="sanc-title">Наказание</h3>
+    <p class="hint" id="sanc-hint"></p>
+    <label for="sanc-dur">Срок</label>
+    <select id="sanc-dur">
+      <option value="15">15 минут</option>
+      <option value="60">1 час</option>
+      <option value="360">6 часов</option>
+      <option value="1440">1 день</option>
+      <option value="10080">7 дней</option>
+      <option value="43200">30 дней</option>
+      <option value="">Навсегда</option>
+    </select>
+    <label for="sanc-reason">Причина (увидит игрок)</label>
+    <input id="sanc-reason" type="text" maxlength="300" placeholder="Например: флуд, пункт 4.1">
+    <p class="msg err" id="sanc-msg" role="status"></p>
+    <div class="actions">
+      <button class="primary" id="sanc-go" type="submit">Применить</button>
+      <button class="ghost" id="sanc-close" type="button">Отмена</button>
+    </div>
+  </form>
+</dialog>
+
 <script>
 (function () {
   'use strict';
@@ -330,7 +356,7 @@ try{var t=localStorage.getItem('cw_theme');if(t!=='light'&&t!=='dark'){t=window.
   function loadUsers(ids) {
     var need = ids.filter(function (id, i) { return id && !users[id] && ids.indexOf(id) === i; });
     if (!need.length) return Promise.resolve();
-    return sb.from('forum_users').select('id,nickname,role').in('id', need).then(function (q) {
+    return sb.from('forum_users').select('id,nickname,role,muted,banned').in('id', need).then(function (q) {
       (q.data || []).forEach(function (u) { users[u.id] = u; });
     });
   }
@@ -343,6 +369,9 @@ try{var t=localStorage.getItem('cw_theme');if(t!=='light'&&t!=='dark'){t=window.
     if (me) {
       authbar.appendChild(el('span', null, ['Ты вошёл как ', el('b', { text: me.nickname || 'игрок' }), ' ']));
       authbar.appendChild(roleBadge(me.role));
+      if (me.ban) authbar.appendChild(el('span', { class: 'chip', text: 'забанен' }));
+      else if (me.mute) authbar.appendChild(el('span', { class: 'chip', text: 'в муте' }));
+      if (myRank() >= 2 && !me.ban) authbar.appendChild(el('a', { href: '#/sanctions', text: 'Наказания' }));
       authbar.appendChild(el('button', { class: 'ghost', type: 'button', text: 'Выйти', onclick: function () { sb.auth.signOut(); } }));
     } else {
       authbar.appendChild(el('button', { class: 'primary', type: 'button', text: 'Войти или создать аккаунт', onclick: openAuth }));
@@ -354,6 +383,10 @@ try{var t=localStorage.getItem('cw_theme');if(t!=='light'&&t!=='dark'){t=window.
       if (!u) { me = null; return; }
       return sb.from('profiles').select('id,nickname,role').eq('id', u.id).maybeSingle().then(function (q) {
         me = q.data || { id: u.id, nickname: '', role: 'user' };
+        me.ban = null; me.mute = null;
+        return sb.rpc('forum_my_status').then(function (st) {
+          (st.data || []).forEach(function (x) { me[x.kind] = x; });
+        });
       });
     }).catch(function () { me = null; });
   }
@@ -540,6 +573,7 @@ try{var t=localStorage.getItem('cw_theme');if(t!=='light'&&t!=='dark'){t=window.
       if (!b) { setCrumbs([{ href: '#/', text: 'Форум' }]); state('Раздела нет, или он закрыт для тебя.', true); return; }
       setCrumbs([{ href: '#/', text: 'Форум' }, { href: '#/b/' + b.id, text: b.title }, { text: 'Новая тема' }]);
       if (!me) { view.replaceChildren(el('div', { class: 'empty', text: 'Чтобы создать тему, войди в аккаунт.' }), el('p', null, [el('button', { class: 'primary', type: 'button', text: 'Войти', onclick: openAuth })])); return; }
+      if (me.mute) { state('Ты в муте ' + untilText(me.mute.until_at) + '.' + (me.mute.reason ? ' Причина: ' + me.mute.reason : ''), true); return; }
       if (myRank() < rank(b.thread_min)) { state('В этом разделе темы создают: ' + WHO[b.thread_min] + '.', true); return; }
 
       var title = el('input', { id: 'n-title', type: 'text', maxlength: '120', required: true, minlength: '3' });
@@ -580,6 +614,7 @@ try{var t=localStorage.getItem('cw_theme');if(t!=='light'&&t!=='dark'){t=window.
   function replyReason(t, b) {
     if (!me) return 'Чтобы ответить, войди в аккаунт.';
     var r = myRank();
+    if (me.mute) return 'Ты в муте ' + untilText(me.mute.until_at) + '.' + (me.mute.reason ? ' Причина: ' + me.mute.reason : '');
     if (r < rank(b.reply_min)) return 'В этом разделе отвечают: ' + WHO[b.reply_min] + '.';
     if (t.reply_min && r < rank(t.reply_min)) return 'В этой теме отвечают: ' + WHO[t.reply_min] + '.';
     if (t.locked && r < 2) return 'Тема закрыта модератором.';
@@ -695,7 +730,7 @@ try{var t=localStorage.getItem('cw_theme');if(t!=='light'&&t!=='dark'){t=window.
         }).catch(function (e) { msg.className = 'msg err'; msg.textContent = human(e); save.disabled = false; });
       });
     }
-    if (mine) tools.appendChild(el('button', { class: 'ghost tiny', type: 'button', text: 'Изменить', onclick: startEdit }));
+    if (mine && !(me && me.mute)) tools.appendChild(el('button', { class: 'ghost tiny', type: 'button', text: 'Изменить', onclick: startEdit }));
     if ((mine && !first) || (mod && !first)) {
       tools.appendChild(armDelete('Удалить', function (btn) {
         sb.from('forum_posts').delete().eq('id', p.id).select('id').then(function (q) {
@@ -709,7 +744,9 @@ try{var t=localStorage.getItem('cw_theme');if(t!=='light'&&t!=='dark'){t=window.
     body.appendChild(textBox);
     article.appendChild(el('aside', null, [
       el('div', { class: 'avatar hex ' + sr, text: (u.nickname || '?').charAt(0).toUpperCase() }),
-      el('div', null, [el('div', { class: 'nick', text: u.nickname || 'игрок' }), roleBadge(u.role)])
+      el('div', null, [el('div', { class: 'nick', text: u.nickname || 'игрок' }), roleBadge(u.role)]),
+      u.banned ? el('span', { class: 'chip', text: 'забанен' }) : (u.muted ? el('span', { class: 'chip', text: 'в муте' }) : null),
+      sanctionButtons(u)
     ]));
     article.appendChild(body);
     return article;
@@ -749,11 +786,112 @@ try{var t=localStorage.getItem('cw_theme');if(t!=='light'&&t!=='dark'){t=window.
     return form;
   }
 
+
+  /* ---------- наказания ---------- */
+  function untilText(iso) { return iso ? 'до ' + when(iso) : 'навсегда'; }
+  function canTarget(u) {
+    if (!me || !u || !u.id || u.id === me.id || u.role === 'owner') return false;
+    return me.role === 'owner' || rank(u.role) < myRank();
+  }
+  function afterSanction(uid) { delete users[uid]; nav++; route(); }
+  function sanctionButtons(u) {
+    if (!canTarget(u)) return null;
+    var box = el('div', { class: 'sbtns' });
+    function unsanction(kind, label) {
+      box.appendChild(el('button', { class: 'ghost tiny', type: 'button', text: label, onclick: function (ev) {
+        ev.target.disabled = true;
+        sb.rpc('forum_unsanction', { p_user: u.id, p_kind: kind }).then(function (r) {
+          if (r.error) throw r.error; afterSanction(u.id);
+        }).catch(function (e) { ev.target.textContent = human(e); });
+      } }));
+    }
+    if (myRank() >= 2) { if (u.muted) unsanction('mute', 'Размутить'); else box.appendChild(el('button', { class: 'ghost tiny', type: 'button', text: 'Мут', onclick: function () { openSanction(u, 'mute'); } })); }
+    if (myRank() >= 3) { if (u.banned) unsanction('ban', 'Разбанить'); else box.appendChild(el('button', { class: 'danger tiny', type: 'button', text: 'Бан', onclick: function () { openSanction(u, 'ban'); } })); }
+    return box;
+  }
+  var sdlg = $('sanc-dlg'), sCur = null;
+  function openSanction(u, kind) {
+    sCur = { u: u, kind: kind };
+    $('sanc-title').textContent = (kind === 'ban' ? 'Бан: ' : 'Мут: ') + (u.nickname || 'игрок');
+    $('sanc-hint').textContent = kind === 'ban'
+      ? 'Забаненный не сможет ни писать, ни читать форум.'
+      : 'Замученный видит форум, но не может писать и править сообщения.';
+    $('sanc-go').textContent = kind === 'ban' ? 'Забанить' : 'Замутить';
+    $('sanc-reason').value = ''; $('sanc-dur').value = kind === 'ban' ? '' : '60';
+    $('sanc-msg').textContent = '';
+    sdlg.showModal();
+  }
+  $('sanc-close').addEventListener('click', function () { sdlg.close(); });
+  sdlg.addEventListener('click', function (ev) { if (ev.target === sdlg) sdlg.close(); });
+  $('sanc-form').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var btn = $('sanc-go'); btn.disabled = true;
+    var d = $('sanc-dur').value;
+    sb.rpc('forum_sanction', { p_user: sCur.u.id, p_kind: sCur.kind, p_minutes: d === '' ? null : parseInt(d, 10), p_reason: $('sanc-reason').value }).then(function (r) {
+      if (r.error) throw r.error;
+      sdlg.close(); afterSanction(sCur.u.id);
+    }).catch(function (e) { $('sanc-msg').textContent = human(e); }).then(function () { btn.disabled = false; });
+  });
+
+  function showBanned() {
+    setCrumbs([{ text: 'Форум' }]);
+    var b = me.ban;
+    view.replaceChildren(el('div', { class: 'panel banned', style: 'margin-top:0' }, [
+      el('h3', { text: 'Ты забанен на форуме' }),
+      el('p', { text: 'Срок: ' + untilText(b.until_at) + '.' }),
+      b.reason ? el('p', { text: 'Причина: ' + b.reason }) : null,
+      el('p', { class: 'hint', text: 'Пока бан действует, форум для тебя закрыт: читать и писать нельзя. Если считаешь, что это ошибка, напиши администрации в Discord.' })
+    ]));
+  }
+
+  function showSanctions(id) {
+    setCrumbs([{ href: '#/', text: 'Форум' }, { text: 'Наказания' }]);
+    if (myRank() < 2) { state('Раздел только для модераторов и админов.', true); return; }
+    state('Загружаю…');
+    sb.from('forum_sanctions').select('id,user_id,kind,reason,until_at,created_at,created_by').is('revoked_at', null).order('created_at', { ascending: false }).limit(200).then(function (q) {
+      if (id !== nav) return;
+      if (q.error) throw q.error;
+      var now = Date.now();
+      var rows = (q.data || []).filter(function (x) { return !x.until_at || new Date(x.until_at).getTime() > now; });
+      var ids = []; rows.forEach(function (x) { ids.push(x.user_id, x.created_by); });
+      return loadUsers(ids).then(function () {
+        if (id !== nav) return;
+        var out = [el('h2', { class: 'title', text: 'Наказания' }), el('p', { class: 'sub', text: 'Действующие муты и баны. Мутят модераторы и выше, банят и разбанивают админы и выше.' })];
+        if (!rows.length) out.push(el('div', { class: 'empty', text: 'Сейчас никто не наказан.' }));
+        else {
+          var list = el('div', { class: 'list' });
+          rows.forEach(function (x) {
+            var u = userOf(x.user_id);
+            var can = x.kind === 'mute' ? myRank() >= 2 : myRank() >= 3;
+            list.appendChild(el('article', { class: 'row thread' }, [
+              el('div', null, [
+                el('h3', null, [el('span', { text: u.nickname || 'игрок' }), ' ', roleBadge(u.role), ' ', el('span', { class: 'chip', text: x.kind === 'ban' ? 'бан' : 'мут' })]),
+                el('p', { class: 'meta', text: (x.reason ? 'Причина: ' + x.reason + '. ' : '') + 'Выдал: ' + nameOf(x.created_by) + ', ' + when(x.created_at) })
+              ]),
+              el('div', { class: 'last' }, [untilText(x.until_at)]),
+              can ? el('button', { class: 'ghost tiny', type: 'button', text: x.kind === 'ban' ? 'Разбанить' : 'Размутить', onclick: function (ev) {
+                ev.target.disabled = true;
+                sb.rpc('forum_unsanction', { p_user: x.user_id, p_kind: x.kind }).then(function (r) {
+                  if (r.error) throw r.error; nav++; showSanctions(nav);
+                }).catch(function (e) { ev.target.textContent = human(e); });
+              } }) : el('span')
+            ]));
+          });
+          out.push(list);
+        }
+        view.replaceChildren.apply(view, out);
+      });
+    }).catch(function (e) { if (id === nav) state(human(e), true); });
+  }
+
   /* ---------- маршруты ---------- */
   function route() {
     var id = ++nav;
+    users = {}; // свежие роли и наказания на каждом переходе
     var m, h = location.hash || '#/';
     window.scrollTo(0, 0);
+    if (me && me.ban) return showBanned();
+    if (h === '#/sanctions') return showSanctions(id);
     if ((m = h.match(/^#\/b\/(\d+)(?:\/(\d+))?$/))) return showBoard(id, +m[1], +m[2] || 1);
     if ((m = h.match(/^#\/t\/(\d+)(?:\/(\d+))?$/))) return showThread(id, +m[1], +m[2] || 1);
     if ((m = h.match(/^#\/new\/(\d+)$/))) return showNew(id, +m[1]);
